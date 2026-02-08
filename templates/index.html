@@ -1,1 +1,270 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="app">
+  <header class="header">
+    <h1 class="logo">FitBuddy</h1>
+    <p class="tagline">Your chill best friend for last-minute outfit decisions</p>
+  </header>
 
+  <section class="section">
+    <div class="section-head">
+      <span class="icon pink">🎧</span>
+      <span class="title">First things first</span>
+    </div>
+    <p class="question">Who am I dressing today?</p>
+    <div class="radio-group">
+      <div class="radio-option">
+        <input type="radio" name="gender" id="g-men" value="Men" checked />
+        <label for="g-men">Men</label>
+      </div>
+      <div class="radio-option">
+        <input type="radio" name="gender" id="g-women" value="Women" />
+        <label for="g-women">Women</label>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <button type="button" class="wardrobe-toggle" aria-expanded="false" data-wardrobe-toggle>
+      View wardrobe status
+    </button>
+    <div class="card hidden" data-wardrobe-box aria-hidden="true">
+      <div id="wardrobe-content"></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <span class="icon pink">🎈</span>
+      <span class="title">What's the plan?</span>
+    </div>
+    <select class="occasion-select" id="occasion" aria-label="Occasion">
+      <option value="Formal Meeting">Formal Meeting</option>
+      <option value="Interview">Interview</option>
+      <option value="Casual Outing">Casual Outing</option>
+      <option value="Cafe / Movie">Cafe / Movie</option>
+      <option value="Gym">Gym</option>
+    </select>
+    <p class="relax-line"><span class="emoji">😌</span> Relax. I've got this.</p>
+    <button type="button" class="btn btn-primary" id="btn-recommend">
+      🙏 Save me from overthinking
+    </button>
+  </section>
+
+  <div id="outfit-zone" class="hidden">
+    <section class="section">
+      <div id="outfit-list"></div>
+      <div class="btn-group">
+        <button type="button" class="btn btn-secondary" id="btn-skip">❌ Skip</button>
+        <button type="button" class="btn btn-primary" id="btn-wear">✅ Wear this</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="final-zone" class="hidden">
+    <section class="section">
+      <div class="alert alert-success">You're set. Here's your outfit.</div>
+      <div class="outfit-card final-outfit" id="final-outfit"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function() {
+  const outfitZone = document.getElementById('outfit-zone');
+  const outfitList = document.getElementById('outfit-list');
+  const finalZone = document.getElementById('final-zone');
+  const finalOutfit = document.getElementById('final-outfit');
+  const btnRecommend = document.getElementById('btn-recommend');
+  const btnSkip = document.getElementById('btn-skip');
+  const btnWear = document.getElementById('btn-wear');
+  const occasionSelect = document.getElementById('occasion');
+  const wardrobeToggle = document.querySelector('[data-wardrobe-toggle]');
+  const wardrobeBox = document.querySelector('[data-wardrobe-box]');
+  const wardrobeContent = document.getElementById('wardrobe-content');
+
+  let outfits = [];
+  let currentIndex = 0;
+  let selectedOutfit = null;
+
+  function getGender() {
+    return document.querySelector('input[name="gender"]:checked').value;
+  }
+
+  function getOccasion() {
+    return occasionSelect.value;
+  }
+
+  async function loadWardrobe() {
+    const gender = getGender();
+    const r = await fetch(`/api/wardrobe/${encodeURIComponent(gender)}`);
+    if (!r.ok) return;
+    const data = await r.json();
+    let html = '';
+    for (const [cat, items] of Object.entries(data)) {
+      if (cat === 'accessories') continue;
+      html += `<p><strong>${cat}</strong><br>`;
+      const list = Array.isArray(items) ? items : Object.values(items).flat();
+      list.forEach(item => {
+        const name = item.name || item;
+        const status = item.status === 'available' ? '✅' : '❌';
+        html += `${status} ${name}<br>`;
+      });
+      html += '</p>';
+    }
+    wardrobeContent.innerHTML = html || 'No items.';
+  }
+
+  wardrobeToggle.addEventListener('click', function() {
+    const open = wardrobeBox.classList.toggle('hidden');
+    this.setAttribute('aria-expanded', !open);
+    wardrobeBox.setAttribute('aria-hidden', open);
+    if (open) return;
+    if (!wardrobeContent.innerHTML) loadWardrobe();
+  });
+
+  document.querySelectorAll('input[name="gender"]').forEach(el => {
+    el.addEventListener('change', () => { wardrobeContent.innerHTML = ''; });
+  });
+
+  function renderOutfit(outfit) {
+    const top = outfit.top?.name || '';
+    const bottom = outfit.bottom?.name || '';
+    const shoes = outfit.shoes?.name || 'You might need one 😬';
+    let levelUpHtml = '';
+    if (outfit.accessories) {
+      const style = outfit.top?.style;
+      const names = [];
+      Object.values(outfit.accessories).flat().forEach(a => {
+        if (a.style === style) names.push(a.name);
+      });
+      if (names.length) {
+        levelUpHtml = `
+          <div class="level-up">
+            <div class="level-up-head">
+              <span class="icon">✨</span>
+              You could level it up with:
+            </div>
+            <ul>
+              <li>${names.join(', ')}</li>
+            </ul>
+          </div>
+        `;
+      }
+    }
+    return `
+      <div class="outfit-card" data-outfit-index="${currentIndex}">
+        <div class="outfit-head">
+          <span class="icon">👔</span>
+          <h3>How about this?</h3>
+        </div>
+        <div class="outfit-item"><strong>Top:</strong> ${top}</div>
+        <div class="outfit-item"><strong>Bottom:</strong> ${bottom}</div>
+        <div class="outfit-item"><strong>Shoes:</strong> ${shoes}</div>
+        ${levelUpHtml}
+        <div class="preview-wrap" id="preview-wrap" data-outfit-index="${currentIndex}">
+          <button type="button" class="btn btn-secondary" style="margin-top:0.5rem" data-generate-image>👀 Show me how this looks</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function showOutfit() {
+    if (selectedOutfit) {
+      const o = selectedOutfit;
+      finalOutfit.innerHTML = `
+        <div class="outfit-item"><strong>Top:</strong> ${o.top?.name}</div>
+        <div class="outfit-item"><strong>Bottom:</strong> ${o.bottom?.name}</div>
+        <div class="outfit-item"><strong>Shoes:</strong> ${o.shoes?.name || '—'}</div>
+      `;
+      finalZone.classList.remove('hidden');
+      outfitZone.classList.add('hidden');
+      return;
+    }
+    if (currentIndex >= outfits.length) {
+      outfitList.innerHTML = '<div class="alert alert-warning">That\'s all I\'ve got 😅 Want to try another occasion?</div>';
+      outfitZone.classList.remove('hidden');
+      return;
+    }
+    outfitList.innerHTML = renderOutfit(outfits[currentIndex]);
+
+    const wrap = document.getElementById('preview-wrap');
+    const genBtn = document.querySelector('[data-generate-image]');
+    if (genBtn) {
+      genBtn.addEventListener('click', function() {
+        generateImage(currentIndex, wrap, genBtn);
+      });
+    }
+    outfitZone.classList.remove('hidden');
+    finalZone.classList.add('hidden');
+  }
+
+  async function generateImage(index, wrap, btn) {
+    const outfit = outfits[index];
+    if (!outfit) return;
+    wrap.classList.add('loading');
+    wrap.innerHTML = '';
+    btn.disabled = true;
+    try {
+      const r = await fetch('/api/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outfit, gender: getGender() })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Failed to generate image');
+      const img = document.createElement('img');
+      img.src = data.image;
+      img.alt = 'Outfit preview';
+      wrap.classList.remove('loading');
+      wrap.innerHTML = '';
+      wrap.appendChild(img);
+    } catch (e) {
+      wrap.classList.remove('loading');
+      wrap.innerHTML = `<div class="alert alert-error">${e.message}</div><button type="button" class="btn btn-secondary" data-generate-image>Retry</button>`;
+      wrap.querySelector('[data-generate-image]')?.addEventListener('click', () => generateImage(index, wrap, wrap.querySelector('[data-generate-image]')));
+    }
+    btn.disabled = false;
+  }
+
+  btnRecommend.addEventListener('click', async function() {
+    btnRecommend.disabled = true;
+    try {
+      const r = await fetch('/api/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gender: getGender(), occasion: getOccasion() })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Recommendation failed');
+      outfits = data.outfits || [];
+      currentIndex = 0;
+      selectedOutfit = null;
+      if (outfits.length === 0) {
+        outfitList.innerHTML = '<div class="alert alert-warning">Hmm… looks like your wardrobe is not ready for this plan 😅 Maybe something\'s in the wash?</div>';
+        outfitZone.classList.remove('hidden');
+        finalZone.classList.add('hidden');
+      } else {
+        showOutfit();
+      }
+    } catch (e) {
+      outfitList.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      outfitZone.classList.remove('hidden');
+    }
+    btnRecommend.disabled = false;
+  });
+
+  btnSkip.addEventListener('click', function() {
+    if (selectedOutfit) return;
+    currentIndex++;
+    showOutfit();
+  });
+
+  btnWear.addEventListener('click', function() {
+    if (currentIndex >= outfits.length) return;
+    selectedOutfit = outfits[currentIndex];
+    showOutfit();
+  });
+})();
+</script>
+{% endblock %}
