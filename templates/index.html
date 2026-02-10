@@ -116,6 +116,11 @@
   let selectedOutfit = null;
   let wardrobeReviewed = false;
 
+  function smoothScrollTo(el) {
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   function getGender() {
     return document.querySelector('input[name="gender"]:checked').value;
   }
@@ -181,6 +186,7 @@
     planningSection.classList.remove('hidden');
     outfitZone.classList.add('hidden');
     finalZone.classList.add('hidden');
+    smoothScrollTo(planningSection);
   });
 
   function renderOutfit(outfit) {
@@ -233,11 +239,13 @@
       `;
       finalZone.classList.remove('hidden');
       outfitZone.classList.add('hidden');
+      smoothScrollTo(finalZone);
       return;
     }
     if (currentIndex >= outfits.length) {
       outfitList.innerHTML = '<div class="alert alert-warning">No more outfits for this selection. Try another occasion or preference.</div>';
       outfitZone.classList.remove('hidden');
+      smoothScrollTo(outfitZone);
       return;
     }
 
@@ -252,6 +260,7 @@
     }
     outfitZone.classList.remove('hidden');
     finalZone.classList.add('hidden');
+    smoothScrollTo(outfitZone);
   }
 
   async function generateImage(index, wrap, btn) {
@@ -287,6 +296,7 @@
       outfitList.innerHTML = '<div class="alert alert-warning">Check wardrobe first, then continue to occasion and recommendations.</div>';
       outfitZone.classList.remove('hidden');
       finalZone.classList.add('hidden');
+      smoothScrollTo(outfitZone);
       return;
     }
 
@@ -296,6 +306,7 @@
       outfitList.innerHTML = '<div class="alert alert-warning">Enter your outfit notes, for example: grey shirt, black trouser, brown shoes.</div>';
       outfitZone.classList.remove('hidden');
       finalZone.classList.add('hidden');
+      smoothScrollTo(outfitZone);
       return;
     }
 
@@ -319,6 +330,7 @@
         outfitList.innerHTML = '<div class="alert alert-warning">No matching outfit found in wardrobe for this request.</div>';
         outfitZone.classList.remove('hidden');
         finalZone.classList.add('hidden');
+        smoothScrollTo(outfitZone);
       } else {
         showOutfit();
       }
@@ -326,6 +338,7 @@
       outfitList.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
       outfitZone.classList.remove('hidden');
       finalZone.classList.add('hidden');
+      smoothScrollTo(outfitZone);
     }
     btnRecommend.disabled = false;
   });
