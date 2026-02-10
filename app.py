@@ -34,11 +34,12 @@ def api_recommend():
     data = request.get_json() or {}
     gender = data.get("gender")
     occasion = data.get("occasion")
+    user_input = data.get("user_input", "")
     if not gender or not occasion:
         return jsonify({"error": "gender and occasion required"}), 400
     if gender not in wardrobe:
         return jsonify({"error": "Invalid gender"}), 400
-    outfits = recommend_outfits(gender, occasion)
+    outfits = recommend_outfits(gender, occasion, user_input=user_input)
     return jsonify({"outfits": outfits})
 
 
