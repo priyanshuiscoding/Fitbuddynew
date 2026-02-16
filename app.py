@@ -56,7 +56,27 @@ def api_generate_image():
         b64 = image_bytes_to_base64(image_bytes)
         return jsonify({"image": f"data:image/png;base64,{b64}"})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        msg = str(e)
+        msg_l = msg.lower()
+        if "credit balance is depleted" in msg_l or "billing error" in msg_l:
+            return jsonify({
+                "error_code": "insufficient_credits",
+                "error": "Image generation temporarily unavailable due to provider credits.",
+                "details": msg,
+            }), 402
+        if "rate limit" in msg_l or "too many requests" in msg_l:
+            return jsonify({
+                "error_code": "rate_limited",
+                "error": "Image generation temporarily rate-limited. Please retry shortly.",
+                "details": msg,
+            }), 429
+        if "authentication failed" in msg_l or "not set" in msg_l:
+            return jsonify({
+                "error_code": "provider_auth_error",
+                "error": "Image generation is not configured correctly.",
+                "details": msg,
+            }), 500
+        return jsonify({"error": msg}), 500
 
 
 if __name__ == "__main__":
