@@ -225,6 +225,15 @@
         <div class="preview-wrap" id="preview-wrap" data-outfit-index="${currentIndex}">
           <button type="button" class="btn btn-secondary" style="margin-top:0.5rem" data-generate-image>Show preview image</button>
         </div>
+        <div class="affiliate-wrap" id="affiliate-wrap" data-outfit-index="${currentIndex}">
+          <div class="affiliate-head">
+            Complete this look
+          </div>
+          <div class="affiliate-list" data-affiliate-list>
+            <div class="affiliate-loading">Finding matching items to pair up...</div>
+          </div>
+          <div class="affiliate-note">Affiliate links shown for demo and monetization flow validation.</div>
+        </div>
       </div>
     `;
   }
@@ -253,14 +262,56 @@
 
     const wrap = document.getElementById('preview-wrap');
     const genBtn = document.querySelector('[data-generate-image]');
+    const affiliateWrap = document.querySelector('[data-affiliate-list]');
     if (genBtn) {
       genBtn.addEventListener('click', function() {
         generateImage(currentIndex, wrap, genBtn);
       });
     }
+    if (affiliateWrap) {
+      loadAffiliateItems(currentIndex, affiliateWrap);
+    }
     outfitZone.classList.remove('hidden');
     finalZone.classList.add('hidden');
     smoothScrollTo(outfitZone);
+  }
+
+  function renderAffiliateCards(items) {
+    if (!items || items.length === 0) {
+      return '<div class="alert alert-warning">No extra buy suggestions needed. Your wardrobe already covers this look.</div>';
+    }
+    return items.map(item => `
+      <a class="affiliate-card" href="${item.affiliate_url}" target="_blank" rel="noopener noreferrer">
+        <img src="${item.image_url}" alt="${item.title}" loading="lazy" />
+        <div class="affiliate-card-body">
+          <div class="affiliate-platform">${item.platform}</div>
+          <div class="affiliate-title">${item.title}</div>
+          <div class="affiliate-cta">View product</div>
+        </div>
+      </a>
+    `).join('');
+  }
+
+  async function loadAffiliateItems(index, hostEl) {
+    const outfit = outfits[index];
+    if (!outfit) return;
+    hostEl.innerHTML = '<div class="affiliate-loading">Finding matching items to pair up...</div>';
+    try {
+      const r = await fetch('/api/affiliate-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          outfit,
+          gender: getGender(),
+          occasion: getOccasion()
+        })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Failed to load affiliate items');
+      hostEl.innerHTML = renderAffiliateCards(data.items || []);
+    } catch (e) {
+      hostEl.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    }
   }
 
   async function generateImage(index, wrap, btn) {

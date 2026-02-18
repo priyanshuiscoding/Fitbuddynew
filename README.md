@@ -46,3 +46,9 @@ Only image preview generation fails until `NVIDIA_API_KEY` is configured.
 ## Deployment note
 
 For Render/Railway/Docker deploys, set `NVIDIA_API_KEY` as an environment variable in the platform dashboard.
+
+## Affiliate suggestion demo
+
+Outfit cards can display "Complete this look" product links with image previews.
+Current links are configured in `affiliate_recommender.py` and are demo placeholders.
+Replace `affiliate_url` values with your real affiliate links for Myntra/Amazon/Flipkart.

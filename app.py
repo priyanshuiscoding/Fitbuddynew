@@ -1,13 +1,14 @@
 # FitBuddy — Flask backend
 import os
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from dotenv import load_dotenv
 
 from wardrobe_data import wardrobe
 from outfit_engine import recommend_outfits
 from prompt_builder import build_outfit_prompt
 from image_generator import generate_outfit_image, image_bytes_to_base64
+from affiliate_recommender import recommend_affiliate_items
 
 # Load .env from the folder where this file lives (so it works from any cwd)
 _app_dir = Path(__file__).resolve().parent
@@ -77,6 +78,25 @@ def api_generate_image():
                 "details": msg,
             }), 500
         return jsonify({"error": msg}), 500
+
+
+@app.route("/api/affiliate-items", methods=["POST"])
+def api_affiliate_items():
+    data = request.get_json() or {}
+    outfit = data.get("outfit")
+    gender = data.get("gender")
+    occasion = data.get("occasion")
+    if not outfit or not gender or not occasion:
+        return jsonify({"error": "outfit, gender and occasion required"}), 400
+    if gender not in wardrobe:
+        return jsonify({"error": "Invalid gender"}), 400
+    items = recommend_affiliate_items(gender=gender, occasion=occasion, outfit=outfit, limit=6)
+    return jsonify({"items": items})
+
+
+@app.route("/photos/<path:filename>")
+def photos(filename):
+    return send_from_directory(_app_dir / "photos", filename)
 
 
 if __name__ == "__main__":
