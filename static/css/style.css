@@ -87,13 +87,22 @@ body {
   display: inline-block;
   transform-origin: 3.8ch 55%;
   transform: translate3d(0, 0, 0) rotate(0deg);
-  animation: logo-f-orbit 1.9s linear 0.2s 1 both;
+  animation: logo-f-orbit 1.9s linear 0.12s 1 both;
   will-change: transform;
   backface-visibility: hidden;
 }
 
-.logo-rest {
+.logo-core {
   display: inline-block;
+}
+
+.logo-y {
+  display: inline-block;
+  transform-origin: -3.9ch 55%;
+  transform: translate3d(0, 0, 0) rotate(0deg);
+  animation: logo-y-orbit 1.9s linear 0.36s 1 both;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 @keyframes logo-f-orbit {
@@ -132,8 +141,45 @@ body {
   }
 }
 
+@keyframes logo-y-orbit {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  10% {
+    transform: translate3d(-0.2ch, -0.35em, 0) rotate(12deg);
+  }
+  20% {
+    transform: translate3d(-1.1ch, -0.75em, 0) rotate(-35deg);
+  }
+  30% {
+    transform: translate3d(-2.4ch, -1.02em, 0) rotate(-95deg);
+  }
+  40% {
+    transform: translate3d(-4.0ch, -0.9em, 0) rotate(-160deg);
+  }
+  50% {
+    transform: translate3d(-5.4ch, -0.45em, 0) rotate(-225deg);
+  }
+  60% {
+    transform: translate3d(-6.0ch, 0.03em, 0) rotate(-285deg);
+  }
+  70% {
+    transform: translate3d(-5.0ch, 0.26em, 0) rotate(-318deg);
+  }
+  80% {
+    transform: translate3d(-3.2ch, 0.22em, 0) rotate(-340deg);
+  }
+  90% {
+    transform: translate3d(-1.3ch, 0.1em, 0) rotate(-352deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .logo-f {
+  .logo-f,
+  .logo-y {
     animation: none;
     transform: none;
   }
