@@ -1,18 +1,36 @@
-/* FitBuddy — fun, attractive dark theme (reference style) */
+/* FitBuddy — light pastel theme with adaptive gender tint */
 :root {
-  --bg: #1a1d23;
-  --bg-subtle: #22262e;
-  --surface: #2a2f38;
-  --border: #3d4450;
-  --text: #ffffff;
-  --text-muted: #b4b9c4;
-  --accent-pink: #e8798c;
-  --accent-pink-soft: rgba(232, 121, 140, 0.2);
-  --accent-blue: #6b9bd1;
-  --accent-yellow: #e8b84a;
+  --bg: #fefcf8;
+  --bg-subtle: #f8f3ed;
+  --surface: #fffaf4;
+  --border: #e9ddcf;
+  --text: #2f2a24;
+  --text-muted: #7d7267;
+  --accent-pink: #e58ea8;
+  --accent-pink-soft: rgba(229, 142, 168, 0.2);
+  --accent-blue: #8faed8;
+  --accent-yellow: #e7c58f;
+  --accent-primary: #8faed8;
+  --accent-primary-soft: rgba(143, 174, 216, 0.2);
   --radius: 12px;
-  --font-display: "Syne", sans-serif;
-  --font-body: "DM Sans", sans-serif;
+  --font-display: "Fraunces", serif;
+  --font-body: "Manrope", sans-serif;
+  --page-glow-a: rgba(143, 174, 216, 0.28);
+  --page-glow-b: rgba(229, 142, 168, 0.2);
+}
+
+body[data-theme="men"] {
+  --accent-primary: #89afd9;
+  --accent-primary-soft: rgba(137, 175, 217, 0.24);
+  --page-glow-a: rgba(137, 175, 217, 0.34);
+  --page-glow-b: rgba(219, 231, 249, 0.55);
+}
+
+body[data-theme="women"] {
+  --accent-primary: #e69ab2;
+  --accent-primary-soft: rgba(230, 154, 178, 0.24);
+  --page-glow-a: rgba(230, 154, 178, 0.3);
+  --page-glow-b: rgba(251, 226, 236, 0.62);
 }
 
 *,
@@ -29,11 +47,15 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg);
+  background:
+    radial-gradient(1200px 700px at 10% -10%, var(--page-glow-a), transparent 65%),
+    radial-gradient(1000px 550px at 100% 0%, var(--page-glow-b), transparent 70%),
+    var(--bg);
   color: var(--text);
   font-family: var(--font-body);
   font-weight: 500;
   line-height: 1.5;
+  transition: background 0.4s ease, color 0.25s ease;
 }
 
 .app {
@@ -52,9 +74,69 @@ body {
   font-family: var(--font-display);
   font-size: clamp(1.85rem, 4vw, 2.5rem);
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.01em;
   margin: 0 0 0.25em;
-  color: var(--text);
+  color: #372d26;
+  display: inline-flex;
+  align-items: baseline;
+  overflow: visible;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.35);
+}
+
+.logo-f {
+  display: inline-block;
+  transform-origin: 3.8ch 55%;
+  transform: translate3d(0, 0, 0) rotate(0deg);
+  animation: logo-f-orbit 1.9s linear 0.2s 1 both;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.logo-rest {
+  display: inline-block;
+}
+
+@keyframes logo-f-orbit {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  10% {
+    transform: translate3d(0.2ch, -0.35em, 0) rotate(-12deg);
+  }
+  20% {
+    transform: translate3d(1.1ch, -0.75em, 0) rotate(35deg);
+  }
+  30% {
+    transform: translate3d(2.4ch, -1.02em, 0) rotate(95deg);
+  }
+  40% {
+    transform: translate3d(4.0ch, -0.9em, 0) rotate(160deg);
+  }
+  50% {
+    transform: translate3d(5.4ch, -0.45em, 0) rotate(225deg);
+  }
+  60% {
+    transform: translate3d(6.0ch, 0.03em, 0) rotate(285deg);
+  }
+  70% {
+    transform: translate3d(5.0ch, 0.26em, 0) rotate(318deg);
+  }
+  80% {
+    transform: translate3d(3.2ch, 0.22em, 0) rotate(340deg);
+  }
+  90% {
+    transform: translate3d(1.3ch, 0.1em, 0) rotate(352deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-f {
+    animation: none;
+    transform: none;
+  }
 }
 
 .tagline {
@@ -83,7 +165,7 @@ body {
 .section-head .title {
   font-family: var(--font-display);
   font-size: 1.05rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -104,6 +186,7 @@ body {
   border-radius: var(--radius);
   padding: 1.2rem 1.4rem;
   margin-bottom: 1rem;
+  box-shadow: 0 10px 28px rgba(158, 134, 108, 0.1);
 }
 
 /* Radio — selected = pink/red accent (reference) */
@@ -140,13 +223,13 @@ body {
 }
 
 .radio-option input:checked + label {
-  border-color: var(--accent-pink);
-  background: var(--accent-pink-soft);
-  color: var(--accent-pink);
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-soft);
+  color: #4f4a43;
 }
 
 .radio-option label:hover {
-  border-color: #505864;
+  border-color: #cbbba8;
   color: var(--text);
 }
 
@@ -171,7 +254,7 @@ select.occasion-select {
 
 select.occasion-select:focus {
   outline: none;
-  border-color: var(--accent-pink);
+  border-color: var(--accent-primary);
 }
 
 .outfit-input {
@@ -189,7 +272,7 @@ select.occasion-select:focus {
 
 .outfit-input:focus {
   outline: none;
-  border-color: var(--accent-pink);
+  border-color: var(--accent-primary);
 }
 
 /* Relax line */
@@ -228,13 +311,13 @@ select.occasion-select:focus {
 }
 
 .btn-primary {
-  background: var(--accent-pink);
-  color: #fff;
+  background: var(--accent-primary);
+  color: #2d2a26;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #dc6b7d;
-  color: #fff;
+  background: color-mix(in srgb, var(--accent-primary) 88%, #ffffff 12%);
+  color: #2d2a26;
   transform: translateY(-1px);
 }
 
@@ -245,7 +328,7 @@ select.occasion-select:focus {
 }
 
 .btn-secondary:hover:not(:disabled) {
-  border-color: #505864;
+  border-color: #cebda9;
   background: var(--bg-subtle);
 }
 
@@ -263,6 +346,7 @@ select.occasion-select:focus {
   border-radius: var(--radius);
   padding: 1.4rem;
   margin-bottom: 1rem;
+  box-shadow: 0 12px 26px rgba(166, 139, 109, 0.1);
 }
 
 .outfit-card .outfit-head {
@@ -372,6 +456,12 @@ select.occasion-select:focus {
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
+  transition: transform 0.16s ease, box-shadow 0.2s ease;
+}
+
+.affiliate-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(168, 145, 119, 0.18);
 }
 
 .affiliate-card img {
@@ -400,7 +490,7 @@ select.occasion-select:focus {
 
 .affiliate-cta {
   margin-top: 0.35rem;
-  color: var(--accent-pink);
+  color: color-mix(in srgb, var(--accent-primary) 82%, #b66c8f 18%);
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -419,7 +509,7 @@ select.occasion-select:focus {
   content: "";
   position: absolute;
   inset: 0;
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 78%, var(--accent-primary-soft) 22%);
   animation: pulse 1.2s ease-in-out infinite;
 }
 
@@ -445,13 +535,13 @@ select.occasion-select:focus {
 .alert-error {
   background: rgba(232, 121, 140, 0.15);
   border: 1px solid rgba(232, 121, 140, 0.4);
-  color: #f0a0ad;
+  color: #9f5363;
 }
 
 .alert-success {
-  background: var(--accent-pink-soft);
-  border: 1px solid rgba(232, 121, 140, 0.4);
-  color: var(--accent-pink);
+  background: var(--accent-primary-soft);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 45%, #ffffff 55%);
+  color: color-mix(in srgb, var(--accent-primary) 70%, #4f3b47 30%);
 }
 
 /* Wardrobe toggle */
@@ -476,8 +566,8 @@ select.occasion-select:focus {
 
 /* Final choice */
 .final-outfit {
-  border-color: var(--accent-pink);
-  background: var(--accent-pink-soft);
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-soft);
 }
 
 .hidden {

@@ -2,7 +2,9 @@
 {% block body %}
 <div class="app">
   <header class="header">
-    <h1 class="logo">FitBuddy</h1>
+    <h1 class="logo" aria-label="FitBuddy">
+      <span class="logo-f" aria-hidden="true">F</span><span class="logo-rest" aria-hidden="true">ITBUDDY</span>
+    </h1>
     <p class="tagline">Your chill best friend for last-minute outfit decisions</p>
   </header>
 
@@ -125,6 +127,17 @@
     return document.querySelector('input[name="gender"]:checked').value;
   }
 
+  function applyThemeByGender() {
+    const gender = (getGender() || '').toLowerCase();
+    if (gender === 'men') {
+      document.body.setAttribute('data-theme', 'men');
+    } else if (gender === 'women') {
+      document.body.setAttribute('data-theme', 'women');
+    } else {
+      document.body.removeAttribute('data-theme');
+    }
+  }
+
   function getOccasion() {
     return occasionSelect.value;
   }
@@ -169,6 +182,7 @@
 
   document.querySelectorAll('input[name="gender"]').forEach(el => {
     el.addEventListener('change', () => {
+      applyThemeByGender();
       wardrobeContent.innerHTML = '';
       wardrobeReviewed = false;
       planningSection.classList.add('hidden');
@@ -407,6 +421,7 @@
   });
 
   updatePreferenceInputVisibility();
+  applyThemeByGender();
 })();
 </script>
 {% endblock %}
