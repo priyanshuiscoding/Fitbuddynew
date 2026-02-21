@@ -71,6 +71,12 @@ def api_generate_image():
                 "error": "Image generation temporarily rate-limited. Please retry shortly.",
                 "details": msg,
             }), 429
+        if "deadline exceeded" in msg_l:
+            return jsonify({
+                "error_code": "provider_timeout",
+                "error": "Image generation took too long on the provider side. Please retry.",
+                "details": msg,
+            }), 504
         if "authentication failed" in msg_l or "not set" in msg_l:
             return jsonify({
                 "error_code": "provider_auth_error",

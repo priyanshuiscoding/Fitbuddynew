@@ -8,9 +8,30 @@ import requests
 
 DEFAULT_TIMEOUT_SECONDS = int(os.environ.get("NVIDIA_REQUEST_TIMEOUT_SECONDS", "180"))
 DEFAULT_MAX_RETRIES = int(os.environ.get("NVIDIA_REQUEST_MAX_RETRIES", "3"))
+DEFAULT_STEPS_FALLBACKS = os.environ.get("NVIDIA_STEPS_FALLBACKS", "30,24,18")
 
 NVIDIA_API_BASE = os.environ.get("NVIDIA_API_BASE", "https://ai.api.nvidia.com/v1/genai").rstrip("/")
 NVIDIA_IMAGE_MODEL = os.environ.get("NVIDIA_IMAGE_MODEL", "stabilityai/stable-diffusion-xl").strip()
+
+
+def _parse_steps_fallbacks(value: str):
+    parsed = []
+    for chunk in (value or "").split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        try:
+            step_value = int(chunk)
+            if step_value > 0:
+                parsed.append(step_value)
+        except ValueError:
+            continue
+    return parsed or [30, 24, 18]
+
+
+def _is_deadline_exceeded(text: str) -> bool:
+    msg = (text or "").lower()
+    return "deadline exceeded" in msg or "statuscode.deadline_exceeded" in msg
 
 
 def _extract_error_message(response: requests.Response) -> str:
@@ -51,34 +72,56 @@ def generate_outfit_image(prompt_data: dict) -> bytes:
     if negative_prompt:
         text_prompts.append({"text": negative_prompt, "weight": -1})
 
-    payload = {
+    base_payload = {
         "text_prompts": text_prompts,
         "sampler": "K_DPM_2_ANCESTRAL",
         "cfg_scale": 7,
-        "steps": 35,
         "seed": 0,
     }
 
     timeout_seconds = max(30, DEFAULT_TIMEOUT_SECONDS)
     max_retries = max(1, DEFAULT_MAX_RETRIES)
+    steps_fallbacks = _parse_steps_fallbacks(DEFAULT_STEPS_FALLBACKS)
 
     last_error = None
     r = None
-    for attempt in range(1, max_retries + 1):
-        try:
-            r = requests.post(model_url, headers=headers, json=payload, timeout=timeout_seconds)
+    for step_value in steps_fallbacks:
+        payload = dict(base_payload)
+        payload["steps"] = step_value
+        for attempt in range(1, max_retries + 1):
+            try:
+                r = requests.post(model_url, headers=headers, json=payload, timeout=timeout_seconds)
+            except requests.exceptions.Timeout as exc:
+                last_error = exc
+                if attempt == max_retries and step_value == steps_fallbacks[-1]:
+                    raise RuntimeError(
+                        f"NVIDIA image generation timed out after {max_retries} attempts "
+                        f"(timeout {timeout_seconds}s per attempt). Try again or lower generation complexity."
+                    ) from exc
+                continue
+            except requests.exceptions.RequestException as exc:
+                last_error = exc
+                if attempt == max_retries and step_value == steps_fallbacks[-1]:
+                    raise RuntimeError(f"NVIDIA image generation request failed: {exc}") from exc
+                continue
+
+            if r.status_code == 200:
+                break
+
+            msg = _extract_error_message(r)
+            if _is_deadline_exceeded(msg):
+                last_error = RuntimeError(msg)
+                break
+
+            if 500 <= r.status_code < 600:
+                last_error = RuntimeError(msg)
+                if attempt < max_retries:
+                    continue
+
             break
-        except requests.exceptions.Timeout as exc:
-            last_error = exc
-            if attempt == max_retries:
-                raise RuntimeError(
-                    f"NVIDIA image generation timed out after {max_retries} attempts "
-                    f"(timeout {timeout_seconds}s per attempt). Try again or lower generation complexity."
-                ) from exc
-        except requests.exceptions.RequestException as exc:
-            last_error = exc
-            if attempt == max_retries:
-                raise RuntimeError(f"NVIDIA image generation request failed: {exc}") from exc
+
+        if r is not None and r.status_code == 200:
+            break
 
     if r is None:
         raise RuntimeError(f"NVIDIA image generation failed before receiving a response: {last_error}")
@@ -97,6 +140,11 @@ def generate_outfit_image(prompt_data: dict) -> bytes:
             )
         if r.status_code == 402:
             raise RuntimeError(f"NVIDIA API billing error: {msg}")
+        if _is_deadline_exceeded(msg):
+            raise RuntimeError(
+                "NVIDIA image generation exceeded provider deadline. "
+                "Please retry, or reduce generation load."
+            )
         raise RuntimeError(f"NVIDIA image generation failed: {msg}")
 
     data = r.json()
