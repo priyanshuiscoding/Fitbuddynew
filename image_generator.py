@@ -6,6 +6,9 @@ import os
 import base64
 import requests
 
+DEFAULT_TIMEOUT_SECONDS = int(os.environ.get("NVIDIA_REQUEST_TIMEOUT_SECONDS", "180"))
+DEFAULT_MAX_RETRIES = int(os.environ.get("NVIDIA_REQUEST_MAX_RETRIES", "3"))
+
 NVIDIA_API_BASE = os.environ.get("NVIDIA_API_BASE", "https://ai.api.nvidia.com/v1/genai").rstrip("/")
 NVIDIA_IMAGE_MODEL = os.environ.get("NVIDIA_IMAGE_MODEL", "stabilityai/stable-diffusion-xl").strip()
 
@@ -56,7 +59,30 @@ def generate_outfit_image(prompt_data: dict) -> bytes:
         "seed": 0,
     }
 
-    r = requests.post(model_url, headers=headers, json=payload, timeout=120)
+    timeout_seconds = max(30, DEFAULT_TIMEOUT_SECONDS)
+    max_retries = max(1, DEFAULT_MAX_RETRIES)
+
+    last_error = None
+    r = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            r = requests.post(model_url, headers=headers, json=payload, timeout=timeout_seconds)
+            break
+        except requests.exceptions.Timeout as exc:
+            last_error = exc
+            if attempt == max_retries:
+                raise RuntimeError(
+                    f"NVIDIA image generation timed out after {max_retries} attempts "
+                    f"(timeout {timeout_seconds}s per attempt). Try again or lower generation complexity."
+                ) from exc
+        except requests.exceptions.RequestException as exc:
+            last_error = exc
+            if attempt == max_retries:
+                raise RuntimeError(f"NVIDIA image generation request failed: {exc}") from exc
+
+    if r is None:
+        raise RuntimeError(f"NVIDIA image generation failed before receiving a response: {last_error}")
+
     if r.status_code != 200:
         msg = _extract_error_message(r)
         if r.status_code in (401, 403):
