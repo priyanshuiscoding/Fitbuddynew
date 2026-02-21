@@ -5,10 +5,13 @@ Create an API key at https://build.nvidia.com and set NVIDIA_API_KEY in .env.
 import os
 import base64
 import requests
+import time
 
-DEFAULT_TIMEOUT_SECONDS = int(os.environ.get("NVIDIA_REQUEST_TIMEOUT_SECONDS", "180"))
+DEFAULT_TIMEOUT_SECONDS = int(os.environ.get("NVIDIA_REQUEST_TIMEOUT_SECONDS", "240"))
 DEFAULT_MAX_RETRIES = int(os.environ.get("NVIDIA_REQUEST_MAX_RETRIES", "3"))
-DEFAULT_STEPS_FALLBACKS = os.environ.get("NVIDIA_STEPS_FALLBACKS", "30,24,18")
+DEFAULT_STEPS_FALLBACKS = os.environ.get("NVIDIA_STEPS_FALLBACKS", "14,10,6,4")
+DEFAULT_SIZE_FALLBACKS = os.environ.get("NVIDIA_SIZE_FALLBACKS", "640x640,512x512,384x384")
+DEFAULT_MODELS_FALLBACKS = os.environ.get("NVIDIA_IMAGE_MODELS_FALLBACKS", "stabilityai/sdxl-turbo")
 
 NVIDIA_API_BASE = os.environ.get("NVIDIA_API_BASE", "https://ai.api.nvidia.com/v1/genai").rstrip("/")
 NVIDIA_IMAGE_MODEL = os.environ.get("NVIDIA_IMAGE_MODEL", "stabilityai/stable-diffusion-xl").strip()
@@ -32,6 +35,32 @@ def _parse_steps_fallbacks(value: str):
 def _is_deadline_exceeded(text: str) -> bool:
     msg = (text or "").lower()
     return "deadline exceeded" in msg or "statuscode.deadline_exceeded" in msg
+
+
+def _parse_size_fallbacks(value: str):
+    parsed = []
+    for chunk in (value or "").split(","):
+        chunk = chunk.strip().lower()
+        if "x" not in chunk:
+            continue
+        width_text, height_text = chunk.split("x", 1)
+        try:
+            width = int(width_text.strip())
+            height = int(height_text.strip())
+        except ValueError:
+            continue
+        if width > 0 and height > 0:
+            parsed.append((width, height))
+    return parsed or [(768, 768), (640, 640), (512, 512)]
+
+
+def _parse_model_fallbacks(primary_model: str, value: str):
+    models = [primary_model]
+    for model in (value or "").split(","):
+        m = model.strip()
+        if m and m not in models:
+            models.append(m)
+    return models
 
 
 def _extract_error_message(response: requests.Response) -> str:
@@ -66,7 +95,6 @@ def generate_outfit_image(prompt_data: dict) -> bytes:
         raise RuntimeError("Prompt is empty; cannot generate image.")
 
     negative_prompt = (prompt_data.get("negative_prompt") or "").strip()
-    model_url = f"{NVIDIA_API_BASE}/{NVIDIA_IMAGE_MODEL}"
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
     text_prompts = [{"text": prompt, "weight": 1}]
     if negative_prompt:
@@ -74,52 +102,70 @@ def generate_outfit_image(prompt_data: dict) -> bytes:
 
     base_payload = {
         "text_prompts": text_prompts,
-        "sampler": "K_DPM_2_ANCESTRAL",
-        "cfg_scale": 7,
+        "sampler": "K_EULER_ANCESTRAL",
+        "cfg_scale": 6,
         "seed": 0,
     }
 
     timeout_seconds = max(30, DEFAULT_TIMEOUT_SECONDS)
     max_retries = max(1, DEFAULT_MAX_RETRIES)
     steps_fallbacks = _parse_steps_fallbacks(DEFAULT_STEPS_FALLBACKS)
+    size_fallbacks = _parse_size_fallbacks(DEFAULT_SIZE_FALLBACKS)
+    model_fallbacks = _parse_model_fallbacks(NVIDIA_IMAGE_MODEL, DEFAULT_MODELS_FALLBACKS)
 
     last_error = None
     r = None
-    for step_value in steps_fallbacks:
-        payload = dict(base_payload)
-        payload["steps"] = step_value
-        for attempt in range(1, max_retries + 1):
-            try:
-                r = requests.post(model_url, headers=headers, json=payload, timeout=timeout_seconds)
-            except requests.exceptions.Timeout as exc:
-                last_error = exc
-                if attempt == max_retries and step_value == steps_fallbacks[-1]:
-                    raise RuntimeError(
-                        f"NVIDIA image generation timed out after {max_retries} attempts "
-                        f"(timeout {timeout_seconds}s per attempt). Try again or lower generation complexity."
-                    ) from exc
-                continue
-            except requests.exceptions.RequestException as exc:
-                last_error = exc
-                if attempt == max_retries and step_value == steps_fallbacks[-1]:
-                    raise RuntimeError(f"NVIDIA image generation request failed: {exc}") from exc
-                continue
+    total_profiles = len(model_fallbacks) * len(size_fallbacks) * len(steps_fallbacks)
+    profile_index = 0
+    for model_name in model_fallbacks:
+        model_url = f"{NVIDIA_API_BASE}/{model_name}"
+        for width, height in size_fallbacks:
+            for step_value in steps_fallbacks:
+                profile_index += 1
+                payload = dict(base_payload)
+                payload["steps"] = step_value
+                payload["width"] = width
+                payload["height"] = height
+                payload["samples"] = 1
+                for attempt in range(1, max_retries + 1):
+                    try:
+                        r = requests.post(model_url, headers=headers, json=payload, timeout=timeout_seconds)
+                    except requests.exceptions.Timeout as exc:
+                        last_error = exc
+                        if attempt == max_retries and profile_index == total_profiles:
+                            raise RuntimeError(
+                                f"NVIDIA image generation timed out after {max_retries} attempts "
+                                f"(timeout {timeout_seconds}s per attempt). Try again or lower generation complexity."
+                            ) from exc
+                        time.sleep(min(2 * attempt, 6))
+                        continue
+                    except requests.exceptions.RequestException as exc:
+                        last_error = exc
+                        if attempt == max_retries and profile_index == total_profiles:
+                            raise RuntimeError(f"NVIDIA image generation request failed: {exc}") from exc
+                        time.sleep(min(2 * attempt, 6))
+                        continue
 
-            if r.status_code == 200:
+                    if r.status_code == 200:
+                        break
+
+                    msg = _extract_error_message(r)
+                    if _is_deadline_exceeded(msg):
+                        last_error = RuntimeError(msg)
+                        break
+
+                    if 500 <= r.status_code < 600:
+                        last_error = RuntimeError(msg)
+                        if attempt < max_retries:
+                            time.sleep(min(2 * attempt, 6))
+                            continue
+
+                    break
+
+                if r is not None and r.status_code == 200:
+                    break
+            if r is not None and r.status_code == 200:
                 break
-
-            msg = _extract_error_message(r)
-            if _is_deadline_exceeded(msg):
-                last_error = RuntimeError(msg)
-                break
-
-            if 500 <= r.status_code < 600:
-                last_error = RuntimeError(msg)
-                if attempt < max_retries:
-                    continue
-
-            break
-
         if r is not None and r.status_code == 200:
             break
 
