@@ -77,6 +77,12 @@ def api_generate_image():
                 "error": "Image generation took too long on the provider side. Please retry.",
                 "details": msg,
             }), 504
+        if "not enabled for this api key" in msg_l or "not found for account" in msg_l:
+            return jsonify({
+                "error_code": "provider_model_unavailable",
+                "error": "Selected image model is not available for this NVIDIA API key.",
+                "details": msg,
+            }), 400
         if "authentication failed" in msg_l or "not set" in msg_l:
             return jsonify({
                 "error_code": "provider_auth_error",

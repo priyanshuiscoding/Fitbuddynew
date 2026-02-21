@@ -11,7 +11,7 @@ DEFAULT_TIMEOUT_SECONDS = int(os.environ.get("NVIDIA_REQUEST_TIMEOUT_SECONDS", "
 DEFAULT_MAX_RETRIES = int(os.environ.get("NVIDIA_REQUEST_MAX_RETRIES", "3"))
 DEFAULT_STEPS_FALLBACKS = os.environ.get("NVIDIA_STEPS_FALLBACKS", "14,10,6,4")
 DEFAULT_SIZE_FALLBACKS = os.environ.get("NVIDIA_SIZE_FALLBACKS", "640x640,512x512,384x384")
-DEFAULT_MODELS_FALLBACKS = os.environ.get("NVIDIA_IMAGE_MODELS_FALLBACKS", "stabilityai/sdxl-turbo")
+DEFAULT_MODELS_FALLBACKS = os.environ.get("NVIDIA_IMAGE_MODELS_FALLBACKS", "")
 
 NVIDIA_API_BASE = os.environ.get("NVIDIA_API_BASE", "https://ai.api.nvidia.com/v1/genai").rstrip("/")
 NVIDIA_IMAGE_MODEL = os.environ.get("NVIDIA_IMAGE_MODEL", "stabilityai/stable-diffusion-xl").strip()
@@ -35,6 +35,11 @@ def _parse_steps_fallbacks(value: str):
 def _is_deadline_exceeded(text: str) -> bool:
     msg = (text or "").lower()
     return "deadline exceeded" in msg or "statuscode.deadline_exceeded" in msg
+
+
+def _is_model_not_found_for_account(text: str) -> bool:
+    msg = (text or "").lower()
+    return "not found for account" in msg or ("function" in msg and "not found" in msg)
 
 
 def _parse_size_fallbacks(value: str):
@@ -119,6 +124,7 @@ def generate_outfit_image(prompt_data: dict) -> bytes:
     profile_index = 0
     for model_name in model_fallbacks:
         model_url = f"{NVIDIA_API_BASE}/{model_name}"
+        model_unavailable = False
         for width, height in size_fallbacks:
             for step_value in steps_fallbacks:
                 profile_index += 1
@@ -153,6 +159,10 @@ def generate_outfit_image(prompt_data: dict) -> bytes:
                     if _is_deadline_exceeded(msg):
                         last_error = RuntimeError(msg)
                         break
+                    if _is_model_not_found_for_account(msg):
+                        last_error = RuntimeError(msg)
+                        model_unavailable = True
+                        break
 
                     if 500 <= r.status_code < 600:
                         last_error = RuntimeError(msg)
@@ -164,7 +174,11 @@ def generate_outfit_image(prompt_data: dict) -> bytes:
 
                 if r is not None and r.status_code == 200:
                     break
+                if model_unavailable:
+                    break
             if r is not None and r.status_code == 200:
+                break
+            if model_unavailable:
                 break
         if r is not None and r.status_code == 200:
             break
@@ -186,6 +200,11 @@ def generate_outfit_image(prompt_data: dict) -> bytes:
             )
         if r.status_code == 402:
             raise RuntimeError(f"NVIDIA API billing error: {msg}")
+        if _is_model_not_found_for_account(msg):
+            raise RuntimeError(
+                "Selected NVIDIA model is not enabled for this API key. "
+                "Set NVIDIA_IMAGE_MODEL to a model available in your NVIDIA account."
+            )
         if _is_deadline_exceeded(msg):
             raise RuntimeError(
                 "NVIDIA image generation exceeded provider deadline. "
