@@ -4,16 +4,16 @@ from pathlib import Path
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from dotenv import load_dotenv
 
+# Load .env from the folder where this file lives (so it works from any cwd)
+_app_dir = Path(__file__).resolve().parent
+load_dotenv(_app_dir / ".env", override=True)
+load_dotenv(_app_dir / ".env.txt", override=True)  # fallback if you saved as .env.txt
+
 from wardrobe_data import wardrobe
 from outfit_engine import recommend_outfits
 from prompt_builder import build_outfit_prompt
 from image_generator import generate_outfit_image, image_bytes_to_base64
 from affiliate_recommender import recommend_affiliate_items
-
-# Load .env from the folder where this file lives (so it works from any cwd)
-_app_dir = Path(__file__).resolve().parent
-load_dotenv(_app_dir / ".env")
-load_dotenv(_app_dir / ".env.txt")  # fallback if you saved as .env.txt
 
 app = Flask(__name__)
 

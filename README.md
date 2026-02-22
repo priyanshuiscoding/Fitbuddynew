@@ -36,6 +36,14 @@ python app.py
 # Defaults shown below
 NVIDIA_IMAGE_MODEL=stabilityai/stable-diffusion-xl
 NVIDIA_API_BASE=https://ai.api.nvidia.com/v1/genai
+# FLUX model example (note the dot in flux.1)
+# NVIDIA_IMAGE_MODEL=black-forest-labs/flux.1-schnell
+# Optional model fallback list (comma-separated)
+# NVIDIA_IMAGE_MODELS_FALLBACKS=black-forest-labs/flux.1-schnell
+# Optional: additional API base candidates tried automatically on 404
+# NVIDIA_API_BASE_FALLBACKS=https://ai.api.nvidia.com/v1
+# Ignore system proxy env vars for NVIDIA requests (recommended in local dev)
+# NVIDIA_TRUST_ENV=0
 ```
 
 ## Behavior when key is missing
